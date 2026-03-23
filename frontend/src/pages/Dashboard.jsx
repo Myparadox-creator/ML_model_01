@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [shipments, setShipments] = useState([]);
   const [modelInfo, setModelInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -17,21 +18,30 @@ export default function Dashboard() {
           fetch(`${API_BASE}/shipments?limit=15`),
           fetch(`${API_BASE}/model-info`),
         ]);
-        if (shipRes.ok) setShipments(await shipRes.json());
+        if (shipRes.ok) {
+          setShipments(await shipRes.json());
+          setIsOffline(false);
+        } else {
+          setIsOffline(true);
+        }
         if (modelRes.ok) setModelInfo(await modelRes.json());
       } catch (err) {
         console.error('API fetch failed:', err);
+        setIsOffline(true);
       } finally {
         setLoading(false);
       }
     }
+    
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Derive KPI stats from shipments
-  const totalActive = shipments.length || 1247;
-  const delayed = shipments.filter(s => s.delayed === 1).length || 135;
-  const atRisk = shipments.filter(s => s.delay_probability >= 0.4 && s.delayed === 0).length || 89;
+  const totalActive = shipments.length;
+  const delayed = shipments.filter(s => s.delayed === 1).length;
+  const atRisk = shipments.filter(s => s.delay_probability >= 0.4 && s.delayed === 0).length;
   const onTime = totalActive - delayed - atRisk;
 
   const getRiskLevel = (prob) => {
@@ -42,9 +52,17 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Dashboard</h1>
-        <p>Real-time overview of shipment delay predictions</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>Dashboard</h1>
+          <p>Real-time overview of shipment delay predictions</p>
+        </div>
+        {isOffline && (
+          <div style={{ padding: '8px 16px', borderRadius: 20, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+            API OFFLINE
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -125,7 +143,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {(shipments.length > 0 ? shipments.slice(0, 15) : getDemoShipments()).map((s, i) => (
+                {shipments.map((s, i) => (
                   <tr key={s.shipment_id || i}>
                     <td style={{ fontWeight: 600, color: 'var(--accent-indigo)' }}>
                       {s.shipment_id}
@@ -155,6 +173,12 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 ))}
+                {!isOffline && shipments.length === 0 && !loading && (
+                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No recent shipments found.</td></tr>
+                )}
+                {isOffline && (
+                   <tr><td colSpan="6" style={{ textAlign: 'center', padding: 24, color: '#ef4444' }}>Backend API is offline. Cannot load shipments.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -162,14 +186,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
-
-function getDemoShipments() {
-  return [
-    { shipment_id: 'SHP-000142', origin: 'Mumbai', destination: 'Delhi', distance_km: 1412, carrier_id: 'CARRIER_003', delay_probability: 0.82, delayed: 1 },
-    { shipment_id: 'SHP-000318', origin: 'Bangalore', destination: 'Chennai', distance_km: 348, carrier_id: 'CARRIER_007', delay_probability: 0.21, delayed: 0 },
-    { shipment_id: 'SHP-000524', origin: 'Hyderabad', destination: 'Pune', distance_km: 563, carrier_id: 'CARRIER_012', delay_probability: 0.55, delayed: 0 },
-    { shipment_id: 'SHP-000891', origin: 'Delhi', destination: 'Jaipur', distance_km: 275, carrier_id: 'CARRIER_001', delay_probability: 0.15, delayed: 0 },
-    { shipment_id: 'SHP-001023', origin: 'Kolkata', destination: 'Guwahati', distance_km: 1089, carrier_id: 'CARRIER_015', delay_probability: 0.73, delayed: 1 },
-  ];
 }

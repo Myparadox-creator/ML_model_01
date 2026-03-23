@@ -13,6 +13,7 @@ export default function Analytics() {
   const [metrics, setMetrics] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -21,15 +22,23 @@ export default function Analytics() {
           fetch(`${API_BASE}/model-info`),
           fetch(`${API_BASE}/analytics`),
         ]);
-        if (modelRes.ok) setMetrics(await modelRes.json());
+        if (modelRes.ok) {
+          setMetrics(await modelRes.json());
+          setIsOffline(false);
+        } else {
+          setIsOffline(true);
+        }
         if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
       } catch (err) {
         console.error('Analytics fetch failed:', err);
+        setIsOffline(true);
       } finally {
         setLoading(false);
       }
     }
     fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Prepare chart data from model metrics
@@ -40,7 +49,7 @@ export default function Analytics() {
     Recall: m.Recall,
     F1: m['F1-Score'],
     'ROC-AUC': m['ROC-AUC'],
-  })) || getDefaultModelData();
+  })) || [];
 
   const radarData = metrics?.metrics?.length
     ? ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC'].map((metric) => {
@@ -51,21 +60,13 @@ export default function Analytics() {
         });
         return point;
       })
-    : getDefaultRadarData();
+    : [];
 
   // Risk distribution
-  const riskDistribution = analytics?.risk_distribution || [
-    { name: 'Low Risk', value: 65, color: '#22c55e' },
-    { name: 'Medium Risk', value: 22, color: '#eab308' },
-    { name: 'High Risk', value: 13, color: '#ef4444' },
-  ];
+  const riskDistribution = analytics?.risk_distribution || [];
 
   // Route delay rates
-  const routeData = analytics?.route_stats || [
-    { route: 'Highway', delay_rate: 28 },
-    { route: 'Local', delay_rate: 38 },
-    { route: 'Mixed', delay_rate: 32 },
-  ];
+  const routeData = analytics?.route_stats || [];
 
   const customTooltipStyle = {
     backgroundColor: '#1e293b',
@@ -93,9 +94,17 @@ export default function Analytics() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Analytics</h1>
-        <p>Model performance comparison and shipment delay insights</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>Analytics</h1>
+          <p>Model performance comparison and shipment delay insights</p>
+        </div>
+        {isOffline && (
+          <div style={{ padding: '8px 16px', borderRadius: 20, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+            API OFFLINE
+          </div>
+        )}
       </div>
 
       {/* Model Metrics Cards */}
@@ -205,22 +214,4 @@ export default function Analytics() {
       </div>
     </div>
   );
-}
-
-function getDefaultModelData() {
-  return [
-    { name: 'Log. Reg.', Accuracy: 0.627, Precision: 0.415, Recall: 0.591, F1: 0.487, 'ROC-AUC': 0.663 },
-    { name: 'Random Forest', Accuracy: 0.678, Precision: 0.448, Recall: 0.308, F1: 0.365, 'ROC-AUC': 0.642 },
-    { name: 'XGBoost', Accuracy: 0.659, Precision: 0.419, Recall: 0.348, F1: 0.380, 'ROC-AUC': 0.614 },
-  ];
-}
-
-function getDefaultRadarData() {
-  return [
-    { metric: 'Accuracy', 'Log. Reg.': 0.627, 'Random Forest': 0.678, XGBoost: 0.659 },
-    { metric: 'Precision', 'Log. Reg.': 0.415, 'Random Forest': 0.448, XGBoost: 0.419 },
-    { metric: 'Recall', 'Log. Reg.': 0.591, 'Random Forest': 0.308, XGBoost: 0.348 },
-    { metric: 'F1-Score', 'Log. Reg.': 0.487, 'Random Forest': 0.365, XGBoost: 0.380 },
-    { metric: 'ROC-AUC', 'Log. Reg.': 0.663, 'Random Forest': 0.642, XGBoost: 0.614 },
-  ];
 }

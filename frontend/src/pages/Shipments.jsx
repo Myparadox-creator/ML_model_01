@@ -8,6 +8,7 @@ const PAGE_SIZE = 20;
 export default function Shipments() {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [page, setPage] = useState(1);
@@ -18,16 +19,20 @@ export default function Shipments() {
         const res = await fetch(`${API_BASE}/shipments?limit=200`);
         if (res.ok) {
           setShipments(await res.json());
+          setIsOffline(false);
+        } else {
+          setIsOffline(true);
         }
       } catch (err) {
         console.error('Failed to fetch shipments:', err);
-        // Use demo data
-        setShipments(getDemoShipments());
+        setIsOffline(true);
       } finally {
         setLoading(false);
       }
     }
     fetchShipments();
+    const interval = setInterval(fetchShipments, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const getRisk = (prob) => {
@@ -61,9 +66,17 @@ export default function Shipments() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Shipments</h1>
-        <p>Browse and search all shipment records ({filtered.length.toLocaleString()} results)</p>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>Shipments</h1>
+          <p>Browse and search all shipment records ({filtered.length.toLocaleString()} results)</p>
+        </div>
+        {isOffline && (
+          <div style={{ padding: '8px 16px', borderRadius: 20, background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 8px #ef4444' }} />
+            API OFFLINE
+          </div>
+        )}
       </div>
 
       {/* Search & Filter */}
@@ -168,6 +181,12 @@ export default function Shipments() {
                       </td>
                     </tr>
                   ))}
+                  {!isOffline && paginated.length === 0 && !loading && (
+                    <tr><td colSpan="10" style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>No shipments found.</td></tr>
+                  )}
+                  {isOffline && (
+                    <tr><td colSpan="10" style={{ textAlign: 'center', padding: 24, color: '#ef4444' }}>Backend API is offline. Cannot load shipments.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -201,22 +220,4 @@ export default function Shipments() {
       </div>
     </div>
   );
-}
-
-function getDemoShipments() {
-  const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata', 'Jaipur'];
-  const routes = ['highway', 'local', 'mixed'];
-  return Array.from({ length: 50 }, (_, i) => ({
-    shipment_id: `SHP-${String(i + 1).padStart(6, '0')}`,
-    origin: cities[Math.floor(Math.random() * cities.length)],
-    destination: cities[Math.floor(Math.random() * cities.length)],
-    distance_km: Math.round(200 + Math.random() * 1800),
-    route_type: routes[Math.floor(Math.random() * routes.length)],
-    carrier_id: `CARRIER_${String(Math.floor(Math.random() * 20) + 1).padStart(3, '0')}`,
-    carrier_reliability_score: 0.5 + Math.random() * 0.5,
-    weather_severity: Math.round(Math.random() * 100) / 10,
-    traffic_congestion: Math.round(Math.random() * 100) / 10,
-    delay_probability: Math.random(),
-    delayed: Math.random() > 0.7 ? 1 : 0,
-  }));
 }
