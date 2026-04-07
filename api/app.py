@@ -1,10 +1,13 @@
 import os
 import json
+import math
 import joblib
 import pandas as pd
+import numpy as np
 import asyncio
 import random
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -129,7 +132,18 @@ def get_shipments(limit: int = 15):
     try:
         df = pd.read_csv(os.path.join(DATA_DIR, "shipments.csv"))
         # Take the most recent shipments (tail) and reverse to show newest first
-        return df.tail(limit).iloc[::-1].to_dict(orient="records")
+        result_df = df.tail(limit).iloc[::-1]
+        # Replace NaN/Inf values to avoid JSON serialization errors
+        result_df = result_df.replace([np.inf, -np.inf], None)
+        result_df = result_df.fillna(0)
+        records = result_df.to_dict(orient="records")
+        # Extra safety: replace any remaining NaN/Inf in nested values
+        def sanitize(obj):
+            if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+                return 0
+            return obj
+        records = [{k: sanitize(v) for k, v in row.items()} for row in records]
+        return JSONResponse(content=records)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

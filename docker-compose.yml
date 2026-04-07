@@ -1,0 +1,63 @@
+# ============================================================
+# Docker Compose — Shipment Delay Early Warning System
+# ============================================================
+# Services:
+#   - app:   FastAPI backend with ML models
+#   - redis: Optional caching layer (enable in .env)
+#
+# Usage:
+#   docker-compose up -d          # Start all services
+#   docker-compose logs -f app    # View app logs
+#   docker-compose down           # Stop all services
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── FastAPI Application ──────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shipment-delay-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./shipment_delay.db
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_ENABLED=${REDIS_ENABLED:-false}
+    volumes:
+      - ./models:/app/models          # Persist trained models
+      - ./data:/app/data              # Persist dataset
+      - ./outputs:/app/outputs        # Persist evaluation outputs
+      - sqlite_data:/app/data/db      # Persist SQLite database
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Redis (optional caching) ────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: shipment-delay-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sqlite_data:
+  redis_data:
