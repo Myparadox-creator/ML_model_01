@@ -39,6 +39,43 @@ In logistics, shipment delays are typically discovered **after** they've already
 
 ---
 
+## 📸 Screenshots & Demo
+
+### 🏠 Dashboard — Real-Time Overview
+Live KPI cards showing active, at-risk, on-time, and delayed shipments. Model performance comparison and a live-updating shipments feed.
+
+![Dashboard](assets/dashboard.png)
+
+---
+
+### 🎯 Predict Delay — AI-Powered Prediction
+Interactive form with city selectors, sliders for weather/traffic/carrier reliability, model picker (Logistic Regression, Random Forest, XGBoost), and instant prediction with an animated risk gauge.
+
+![Predict Form](assets/predict.png)
+
+---
+
+### 🔴 Prediction Result — High Risk Detected (86.7%)
+When a shipment has bad weather (9/10), high traffic (8/10), and low carrier reliability (50%), the AI predicts an **86.7% delay probability** with HIGH risk classification and recommended actions.
+
+![Prediction Result](assets/prediction_result.png)
+
+---
+
+### 📋 Shipments — Searchable Records
+Browse all 200+ shipment records with search, filter by risk level, pagination, and color-coded risk indicators. Auto-refreshes every 5 seconds with live data.
+
+![Shipments](assets/shipments.png)
+
+---
+
+### 📈 Analytics — Model Comparison & Insights
+Model comparison bar charts, multi-metric radar plots, risk distribution donut chart, and delay rate analysis by route type — all powered by Recharts.
+
+![Analytics](assets/analytics.png)
+
+---
+
 ## 🧠 How It Works
 
 ```
