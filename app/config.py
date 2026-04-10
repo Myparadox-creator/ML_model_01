@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     DEFAULT_MODEL: str = "xgboost"
     MODELS_DIR: str = "models"
 
+    # ── Data Pipeline ────────────────────────────────────────
+    DATA_MODE: str = "real"  # "real" or "synthetic"
+
+    # ── Kaggle (for real dataset download) ───────────────────
+    KAGGLE_USERNAME: str = ""
+    KAGGLE_KEY: str = ""
+
     @property
     def BASE_DIR(self) -> str:
         """Project root directory."""

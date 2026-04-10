@@ -1,11 +1,22 @@
 """
-Synthetic Shipment Dataset Generator
-=====================================
-Generates ~10,000 realistic shipment records with features for
-predicting delivery delays in an AI-powered logistics system.
+Shipment Dataset Generator
+============================
+Generates shipment data for the AI-powered logistics delay prediction system.
+
+Modes:
+  - real:      Downloads and adapts the Kaggle E-Commerce Shipping Dataset
+               (10,999 real records with actual on-time/delayed labels)
+  - synthetic: Generates ~10,000 synthetic records using numpy.random (fallback)
+
+Usage:
+    python data/generate_dataset.py                  # defaults to real mode
+    python data/generate_dataset.py --mode real       # force real data
+    python data/generate_dataset.py --mode synthetic  # force synthetic data
 """
 
 import os
+import sys
+import argparse
 import numpy as np
 import pandas as pd
 
@@ -122,8 +133,49 @@ def save_dataset(df: pd.DataFrame, filepath: str = OUTPUT_FILE) -> str:
     return filepath
 
 
+def generate_real_dataset() -> pd.DataFrame:
+    """Generate dataset from real Kaggle data (download if needed)."""
+    from data.download_real_data import download_dataset, RAW_CSV
+    from data.real_data_adapter import adapt_kaggle_dataset
+
+    # Step 1: Download if needed
+    raw_path = download_dataset()
+    if raw_path is None:
+        print("⚠️  Real data download failed. Falling back to synthetic data.")
+        return None
+
+    # Step 2: Adapt to our schema
+    df = adapt_kaggle_dataset(raw_path)
+    return df
+
+
 if __name__ == "__main__":
-    df = generate_dataset()
+    parser = argparse.ArgumentParser(
+        description="Generate shipment dataset for delay prediction"
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["real", "synthetic"],
+        default="real",
+        help="Data mode: 'real' (Kaggle dataset) or 'synthetic' (numpy random). Default: real",
+    )
+    parser.add_argument(
+        "--samples",
+        type=int,
+        default=NUM_SAMPLES,
+        help=f"Number of samples for synthetic mode. Default: {NUM_SAMPLES}",
+    )
+    args = parser.parse_args()
+
+    if args.mode == "real":
+        df = generate_real_dataset()
+        if df is None:
+            print("⚠️  Falling back to synthetic mode...")
+            df = generate_dataset(n_samples=args.samples)
+    else:
+        df = generate_dataset(n_samples=args.samples)
+
     save_dataset(df)
     print(df.head())
     print(df.describe())
+

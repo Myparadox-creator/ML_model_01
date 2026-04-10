@@ -50,6 +50,87 @@ def load_data(filepath: str = None) -> pd.DataFrame:
     return df
 
 
+def print_data_source(df: pd.DataFrame):
+    """Identify and print whether the data is real or synthetic."""
+    # Real data from Kaggle has exactly 10,999 rows (before live additions)
+    # and city distributions that differ from synthetic uniform random
+    n_rows = len(df)
+    unique_origins = df["origin"].nunique()
+    has_live_ids = df["shipment_id"].str.contains("LIVE").any() if "shipment_id" in df.columns else False
+
+    if n_rows == 10_999 or (n_rows > 10_990 and n_rows <= 11_100 and not has_live_ids):
+        source = "REAL (Kaggle E-Commerce Shipping Dataset)"
+    elif n_rows == 10_000 and unique_origins <= 14:
+        source = "SYNTHETIC (numpy.random generated)"
+    else:
+        source = f"UNKNOWN ({n_rows:,} rows, {unique_origins} origins)"
+
+    print(f"📋 Data source: {source}")
+    return source
+
+
+def validate_data_quality(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate data quality: check nulls, invalid ranges, duplicates."""
+    print("🔍 Validating data quality...")
+    issues = []
+
+    # Check for null values in features
+    null_counts = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES + [TARGET]].isnull().sum()
+    null_cols = null_counts[null_counts > 0]
+    if len(null_cols) > 0:
+        for col, count in null_cols.items():
+            issues.append(f"   ⚠️  {col}: {count} null values")
+        # Fill numeric nulls with median, categorical with mode
+        for col in NUMERIC_FEATURES:
+            if df[col].isnull().any():
+                median_val = df[col].median()
+                df[col] = df[col].fillna(median_val)
+        for col in CATEGORICAL_FEATURES:
+            if df[col].isnull().any():
+                mode_val = df[col].mode()[0]
+                df[col] = df[col].fillna(mode_val)
+        if df[TARGET].isnull().any():
+            df = df.dropna(subset=[TARGET])
+
+    # Check for invalid ranges
+    if (df["distance_km"] <= 0).any():
+        bad = (df["distance_km"] <= 0).sum()
+        issues.append(f"   ⚠️  distance_km: {bad} non-positive values")
+        df = df[df["distance_km"] > 0]
+
+    if not df["departure_hour"].between(0, 23).all():
+        bad = (~df["departure_hour"].between(0, 23)).sum()
+        issues.append(f"   ⚠️  departure_hour: {bad} out-of-range values")
+        df["departure_hour"] = df["departure_hour"].clip(0, 23)
+
+    if not df["day_of_week"].between(0, 6).all():
+        bad = (~df["day_of_week"].between(0, 6)).sum()
+        issues.append(f"   ⚠️  day_of_week: {bad} out-of-range values")
+        df["day_of_week"] = df["day_of_week"].clip(0, 6)
+
+    if not df["delayed"].isin([0, 1]).all():
+        bad = (~df["delayed"].isin([0, 1])).sum()
+        issues.append(f"   ⚠️  delayed: {bad} non-binary values")
+        df = df[df["delayed"].isin([0, 1])]
+
+    # Check for duplicate shipment IDs
+    if "shipment_id" in df.columns:
+        dupes = df["shipment_id"].duplicated().sum()
+        if dupes > 0:
+            issues.append(f"   ⚠️  {dupes} duplicate shipment_id values")
+            df = df.drop_duplicates(subset=["shipment_id"], keep="first")
+
+    if issues:
+        print(f"   Found {len(issues)} issue(s):")
+        for issue in issues:
+            print(issue)
+        print(f"   ✅ Auto-fixed. Clean records: {len(df):,}")
+    else:
+        print("   ✅ All data quality checks passed!")
+
+    return df
+
+
 def create_preprocessor() -> ColumnTransformer:
     """Create a sklearn ColumnTransformer for feature preprocessing."""
     numeric_transformer = Pipeline(steps=[
@@ -75,6 +156,7 @@ def prepare_data(
     df: pd.DataFrame,
     test_size: float = 0.2,
     random_state: int = 42,
+    save_models: bool = True,
 ) -> tuple:
     """
     Prepare data for model training.
@@ -82,6 +164,12 @@ def prepare_data(
     Returns:
         X_train, X_test, y_train, y_test, preprocessor (fitted)
     """
+    # Data quality validation
+    df = validate_data_quality(df)
+
+    # Identify data source
+    print_data_source(df)
+
     # Drop non-feature columns
     cols_to_drop = [c for c in DROP_COLUMNS if c in df.columns]
     df_clean = df.drop(columns=cols_to_drop)
@@ -107,10 +195,11 @@ def prepare_data(
     X_test_processed = preprocessor.transform(X_test)
 
     # Save preprocessor
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    preprocessor_path = os.path.join(MODELS_DIR, "preprocessor.joblib")
-    joblib.dump(preprocessor, preprocessor_path)
-    print(f"💾 Preprocessor saved: {preprocessor_path}")
+    if save_models:
+        os.makedirs(MODELS_DIR, exist_ok=True)
+        preprocessor_path = os.path.join(MODELS_DIR, "preprocessor.joblib")
+        joblib.dump(preprocessor, preprocessor_path)
+        print(f"💾 Preprocessor saved: {preprocessor_path}")
 
     # Get feature names after transformation
     feature_names = get_feature_names(preprocessor)

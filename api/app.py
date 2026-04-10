@@ -110,20 +110,34 @@ class PredictionRequest(BaseModel):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "models_loaded": list(models.keys())}
+    data_source = "unknown"
+    try:
+        metrics_path = os.path.join(OUTPUTS_DIR, "model_metrics.json")
+        if os.path.exists(metrics_path):
+            with open(metrics_path, "r") as f:
+                metrics_data = json.load(f)
+                data_source = metrics_data.get("data_source", "unknown")
+    except Exception:
+        pass
+    return {
+        "status": "ok",
+        "models_loaded": list(models.keys()),
+        "data_source": data_source,
+    }
 
 @app.get("/model-info")
 def get_model_info():
     try:
         with open(os.path.join(OUTPUTS_DIR, "model_metrics.json"), "r") as f:
             metrics = json.load(f)
-            # Find best model based on ROC-AUC
+            # Handle both old format (list) and new format (dict with data_source)
             if isinstance(metrics, dict) and "metrics" in metrics:
-                best_model = max(metrics["metrics"], key=lambda x: x.get("ROC-AUC", 0))["Model"]
                 return metrics
-            else:
+            elif isinstance(metrics, list):
                 best_model = max(metrics, key=lambda x: x.get("ROC-AUC", 0))["Model"]
-                return {"metrics": metrics, "best_model": best_model}
+                return {"data_source": "unknown", "metrics": metrics, "best_model": best_model}
+            else:
+                return metrics
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

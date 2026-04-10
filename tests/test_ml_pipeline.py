@@ -68,7 +68,7 @@ class TestPreprocessing:
         from src.preprocessing import prepare_data
 
         df = generate_dataset(n_samples=200)
-        X_train, X_test, y_train, y_test, preprocessor, feature_names = prepare_data(df)
+        X_train, X_test, y_train, y_test, preprocessor, feature_names = prepare_data(df, save_models=False)
 
         assert isinstance(X_train, np.ndarray), "X_train should be numpy array"
         assert isinstance(X_test, np.ndarray), "X_test should be numpy array"
@@ -81,7 +81,7 @@ class TestPreprocessing:
         from src.preprocessing import prepare_data
 
         df = generate_dataset(n_samples=200)
-        _, _, _, _, preprocessor, _ = prepare_data(df)
+        _, _, _, _, preprocessor, _ = prepare_data(df, save_models=False)
 
         # Create input with unknown city
         unknown_input = pd.DataFrame([{
@@ -108,7 +108,7 @@ class TestPreprocessing:
         from src.preprocessing import prepare_data
 
         df = generate_dataset(n_samples=1000)
-        _, _, y_train, y_test, _, _ = prepare_data(df)
+        _, _, y_train, y_test, _, _ = prepare_data(df, save_models=False)
 
         train_rate = y_train.mean()
         test_rate = y_test.mean()

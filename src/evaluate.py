@@ -142,12 +142,20 @@ def plot_feature_importance(model, feature_names: list, model_name: str):
         print(f"📈 Feature importance saved: {filepath}")
 
 
-def evaluate_all_models(models: dict, X_test, y_test, feature_names: list = None) -> pd.DataFrame:
+def evaluate_all_models(models: dict, X_test, y_test, feature_names: list = None, data_source: str = "unknown") -> pd.DataFrame:
     """
     Evaluate all models, generate plots, and return comparison table.
+
+    Args:
+        models: Dict of model name → trained model
+        X_test: Test features
+        y_test: Test labels
+        feature_names: List of feature names (for importance plots)
+        data_source: "real" or "synthetic" — included in metrics output
     """
     print("=" * 60)
     print("📊 MODEL EVALUATION & COMPARISON")
+    print(f"   Data source: {data_source}")
     print("=" * 60)
 
     all_metrics = []
@@ -178,12 +186,17 @@ def evaluate_all_models(models: dict, X_test, y_test, feature_names: list = None
         for name, model in models.items():
             plot_feature_importance(model, feature_names, name)
 
-    # Save metrics to JSON
+    # Save metrics to JSON (with data source label)
     os.makedirs(OUTPUTS_DIR, exist_ok=True)
+    metrics_output = {
+        "data_source": data_source,
+        "metrics": all_metrics,
+        "best_model": best_model_name,
+    }
     metrics_path = os.path.join(OUTPUTS_DIR, "model_metrics.json")
     with open(metrics_path, "w") as f:
-        json.dump(all_metrics, f, indent=2)
-    print(f"\n💾 Metrics saved: {metrics_path}")
+        json.dump(metrics_output, f, indent=2)
+    print(f"\n💾 Metrics saved: {metrics_path} (source: {data_source})")
 
     # Save comparison CSV
     comparison_path = os.path.join(OUTPUTS_DIR, "model_comparison.csv")

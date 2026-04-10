@@ -32,6 +32,9 @@ seaborn>=0.13.0
 # ── HTTP Client (for real weather API) ──────────────────
 httpx>=0.25.0
 
+# ── Kaggle API (for real dataset download) ──────────────
+kaggle>=1.6.0
+
 # ── Caching (optional) ─────────────────────────────────
 redis>=5.0.0
 
